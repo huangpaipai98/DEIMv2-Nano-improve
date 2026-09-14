@@ -1,0 +1,23 @@
+path: ../data/VisDrone2019-DET  # 数据集根目录
+
+# 训练集和验证集的图像文件夹路径
+train: train
+val: test-dev
+
+train_json: ../data/VisDrone2019-DET/annotations/instances_train.json
+val_json: ../data/VisDrone2019-DET/annotations/instances_test-dev.json
+
+# 类别信息 (共11个类, 索引 0-10)
+nc: 11
+names:
+  0: 'pedestrian'
+  1: 'people'
+  2: 'bicycle'
+  3: 'car'
+  4: 'van'
+  5: 'truck'
+  6: 'tricycle'
+  7: 'awning-tricycle'
+  8: 'bus'
+  9: 'motor'
+  10: 'others'

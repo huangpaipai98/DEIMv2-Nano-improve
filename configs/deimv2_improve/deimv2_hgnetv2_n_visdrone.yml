@@ -1,0 +1,48 @@
+__include__: [
+  '../deimv2/deimv2_hgnetv2_n_coco.yml',
+]
+
+find_unused_parameters: False
+
+print_freq: 500
+checkpoint_freq: 10
+
+output_dir: ./outputs/deimv2_hgnetv2_n_visdrone
+
+
+optimizer:
+  type: AdamW
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.0001
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.0001
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0002
+
+
+warmup_iter: 2000
+
+num_classes: 11
+
+
+train_dataloader: 
+  dataset:
+    img_folder: ../data/VisDrone2019-DET/train/
+    ann_file: ../data/VisDrone2019-DET/annotations/instances_train.json
+
+  total_batch_size: 8
+
+
+val_dataloader:
+  dataset: 
+    img_folder: ../data/VisDrone2019-DET/test-dev/
+    ann_file: ../data/VisDrone2019-DET/annotations/instances_test-dev.json
+
+  total_batch_size: 16

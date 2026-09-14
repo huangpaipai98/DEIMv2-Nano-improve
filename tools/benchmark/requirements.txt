@@ -1,0 +1,6 @@
+onnxruntime
+tensorrt==10.16.1.11
+# pycuda # conda install -c conda-forge pycuda, 无需本地编译
+calflops
+tqdm
+# onnx_graphsurgeon # for YOLOs

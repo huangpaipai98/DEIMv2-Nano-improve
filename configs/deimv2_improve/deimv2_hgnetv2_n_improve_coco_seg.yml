@@ -1,0 +1,125 @@
+__include__: [
+  '../deimv2/deimv2_hgnetv2_n_coco.yml',
+]
+
+find_unused_parameters: False
+
+print_freq: 500
+checkpoint_freq: 10
+
+output_dir: ./outputs/deimv2_hgnetv2_n_improve_coco_seg
+
+
+evaluator:
+  iou_types: ['bbox', 'segm']
+
+
+DEIM:
+  segmentation_head:
+    in_dim: 128
+    num_blocks: 3
+    bottleneck_ratio: 1
+    downsample_ratio: 8
+    ffn_scaling_ratio: 4
+
+
+HGNetv2:
+  name: 'Pico'
+  return_idx: [0, 1, 2]
+
+
+HybridEncoder:
+  in_channels: [64, 256, 512]
+  feat_strides: [8, 16, 32]
+
+  # intra
+  use_encoder_idx: [2]
+
+  version: 'dfine'
+
+  use_downsample: True
+  downsample_pretrained: True # Only support HGNetv2: name='Pico'、return_idx=[0, 1, 2]
+
+  loops: [[2]]
+
+  # hyper ace
+  hyperace:
+    c1: [128, 128, 128]
+    c2: 128
+    num_hyperedges: 4
+
+
+DEIMTransformer:
+  feat_channels: [128, 128, 128]
+  feat_strides: [8, 16, 32]
+  num_levels: 3
+  num_points: [6, 6, 6]
+
+  loops: [2, 2, 1]
+
+ema:
+  testkey: 'coco_eval_masks'
+
+optimizer:
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.0006
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.0006
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0012
+
+
+# Increase to search for the optimal ema
+epoches: 232 # 160 + 12 + 60
+
+
+train_dataloader: 
+  dataset:
+    return_masks: True
+    img_folder: ../data/COCO2017/train2017/
+    ann_file: ../data/COCO2017/annotations/instances_train2017.json
+    transforms:
+      policy:
+        epoch: [4, 4, 172]   # list, close mosaic
+      mosaic_prob: 0.0 # close mosaic
+
+  collate_fn:
+    mixup_prob: 0.5
+    mixup_epochs: [4, 90]
+    copyblend_prob: 0.4
+    copyblend_epochs: [4, 90]   # CP half
+    area_threshold: 100
+    stop_epoch: 172
+
+  total_batch_size: 128
+
+
+val_dataloader:
+  dataset: 
+    return_masks: True
+    img_folder: ../data/COCO2017/val2017/
+    ann_file: ../data/COCO2017/annotations/instances_val2017.json
+
+  total_batch_size: 256
+
+
+DEIMCriterion:
+  weight_dict:
+    loss_mask_ce: 2
+    loss_mask_dice: 2
+  losses: ['mal', 'boxes', 'local', 'masks']
+  mask_point_sample_ratio: 16
+
+  matcher:
+    weight_dict:
+      cost_mask_ce: 2
+      cost_mask_dice: 2
+    change_matcher: True
+    matcher_change_epoch: 160

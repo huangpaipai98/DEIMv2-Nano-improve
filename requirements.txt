@@ -1,0 +1,8 @@
+torch
+torchvision
+pycocotools
+PyYAML
+tensorboard
+scipy
+calflops
+transformers
