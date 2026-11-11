@@ -110,6 +110,26 @@ val_dataloader:
   total_batch_size: 256
 
 
+test_dataloader:
+  type: DataLoader
+  dataset: 
+    type: CocoDetection
+    return_masks: True
+    img_folder: ../data/COCO2017/val2017/
+    ann_file: ../data/COCO2017/annotations/instances_val2017.json
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640], }
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}
+  shuffle: False
+  total_batch_size: 256
+  num_workers: 4
+  drop_last: False
+  collate_fn:
+    type: BatchImageCollateFunction
+
+
 DEIMCriterion:
   weight_dict:
     loss_mask_ce: 2

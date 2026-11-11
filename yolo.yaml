@@ -1,0 +1,156 @@
+# CropAndWeed
+path: ../data/CropAndWeed
+train: train
+val: test
+train_json: ../data/CropAndWeed/annotations/Fine24/instances_train.json
+val_json: ../data/CropAndWeed/annotations/Fine24/instances_test.json
+nc: 24
+names:
+  0: "Maize"
+  1: "Sugar beet"
+  2: "Soy"
+  3: "Sunflower"
+  4: "Potato"
+  5: "Pea"
+  6: "Bean"
+  7: "Pumpkin"
+  8: "Grasses"
+  9: "Amaranth"
+  10: "Goosefoot"
+  11: "Knotweed"
+  12: "Corn spurry"
+  13: "Chickweed"
+  14: "Solanales"
+  15: "Potato weed"
+  16: "Chamomile"
+  17: "Thistle"
+  18: "Mercuries"
+  19: "Geranium"
+  20: "Crucifer"
+  21: "Poppy"
+  22: "Plantago"
+  23: "Labiate"
+
+
+# # USU-Corn-WeedDB
+# path: ../data/USU-Corn-WeedDB
+# train: train
+# val: test
+# train_json: ../data/USU-Corn-WeedDB/annotations/instances_train.json
+# val_json: ../data/USU-Corn-WeedDB/annotations/instances_test.json
+# nc: 3
+# names:
+#   0: 'CL'
+#   1: 'RPW'
+#   2: 'GFT'
+
+
+# # VisDrone2019-DET
+# path: ../data/VisDrone2019-DET
+# train: train
+# val: test-dev
+# train_json: ../data/VisDrone2019-DET/annotations/instances_train.json
+# val_json: ../data/VisDrone2019-DET/annotations/instances_test-dev.json
+# nc: 11
+# names:
+#   0: 'pedestrian'
+#   1: 'people'
+#   2: 'bicycle'
+#   3: 'car'
+#   4: 'van'
+#   5: 'truck'
+#   6: 'tricycle'
+#   7: 'awning-tricycle'
+#   8: 'bus'
+#   9: 'motor'
+#   10: 'others'
+
+
+# # COCO2017
+# path: ../data/COCO2017
+# train: train2017
+# val: val2017
+# train_json: ../data/COCO2017/annotations/instances_train2017.json
+# val_json: ../data/COCO2017/annotations/instances_val2017.json
+# nc: 80
+# names:
+#   0: 'person'
+#   1: 'bicycle'
+#   2: 'car'
+#   3: 'motorcycle'
+#   4: 'airplane'
+#   5: 'bus'
+#   6: 'train'
+#   7: 'truck'
+#   8: 'boat'
+#   9: 'traffic light'
+#   10: 'fire hydrant'
+#   11: 'stop sign'
+#   12: 'parking meter'
+#   13: 'bench'
+#   14: 'bird'
+#   15: 'cat'
+#   16: 'dog'
+#   17: 'horse'
+#   18: 'sheep'
+#   19: 'cow'
+#   20: 'elephant'
+#   21: 'bear'
+#   22: 'zebra'
+#   23: 'giraffe'
+#   24: 'backpack'
+#   25: 'umbrella'
+#   26: 'handbag'
+#   27: 'tie'
+#   28: 'suitcase'
+#   29: 'frisbee'
+#   30: 'skis'
+#   31: 'snowboard'
+#   32: 'sports ball'
+#   33: 'kite'
+#   34: 'baseball bat'
+#   35: 'baseball glove'
+#   36: 'skateboard'
+#   37: 'surfboard'
+#   38: 'tennis racket'
+#   39: 'bottle'
+#   40: 'wine glass'
+#   41: 'cup'
+#   42: 'fork'
+#   43: 'knife'
+#   44: 'spoon'
+#   45: 'bowl'
+#   46: 'banana'
+#   47: 'apple'
+#   48: 'sandwich'
+#   49: 'orange'
+#   50: 'broccoli'
+#   51: 'carrot'
+#   52: 'hot dog'
+#   53: 'pizza'
+#   54: 'donut'
+#   55: 'cake'
+#   56: 'chair'
+#   57: 'couch'
+#   58: 'potted plant'
+#   59: 'bed'
+#   60: 'dining table'
+#   61: 'toilet'
+#   62: 'tv'
+#   63: 'laptop'
+#   64: 'mouse'
+#   65: 'remote'
+#   66: 'keyboard'
+#   67: 'cell phone'
+#   68: 'microwave'
+#   69: 'oven'
+#   70: 'toaster'
+#   71: 'sink'
+#   72: 'refrigerator'
+#   73: 'book'
+#   74: 'clock'
+#   75: 'vase'
+#   76: 'scissors'
+#   77: 'teddy bear'
+#   78: 'hair drier'
+#   79: 'toothbrush'

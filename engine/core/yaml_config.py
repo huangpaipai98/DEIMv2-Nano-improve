@@ -83,6 +83,15 @@ class YAMLConfig(BaseConfig):
         return super().val_dataloader
 
     @property
+    def test_dataloader(self, ) -> DataLoader:
+        if 'test_dataloader' in self.yaml_cfg and self.yaml_cfg['test_dataloader'] is not None:
+            if self._test_dataloader is None:
+                self._test_dataloader = self.build_dataloader('test_dataloader')
+            return super().test_dataloader
+        else:
+            return self.val_dataloader
+
+    @property
     def ema(self, ) -> torch.nn.Module:
         if self._ema is None and self.yaml_cfg.get('use_ema', False):
             self._ema = create('ema', self.global_cfg, model=self.model)
@@ -104,6 +113,17 @@ class YAMLConfig(BaseConfig):
             else:
                 raise NotImplementedError(f"{self.yaml_cfg['evaluator']['type']}")
         return super().evaluator
+
+    @property
+    def evaluator_test(self, ):
+        if self._evaluator_test is None and 'evaluator' in self.yaml_cfg:
+            if self.yaml_cfg['evaluator']['type'] == 'CocoEvaluator':
+                from ..data import get_coco_api_from_dataset
+                base_ds = get_coco_api_from_dataset(self.test_dataloader.dataset)
+                self._evaluator_test = create('evaluator', self.global_cfg, coco_gt=base_ds)
+            else:
+                raise NotImplementedError(f"{self.yaml_cfg['evaluator']['type']}")
+        return super().evaluator_test
 
     @staticmethod
     def get_optim_params(cfg: dict, model: nn.Module):

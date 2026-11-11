@@ -10,7 +10,6 @@ Copyright (c) 2023 lyuwenyu. All Rights Reserved.
 """
 
 import os
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 

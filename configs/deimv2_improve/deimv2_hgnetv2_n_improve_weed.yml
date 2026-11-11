@@ -1,0 +1,133 @@
+__include__: [
+  '../deimv2/deimv2_hgnetv2_n_coco.yml',
+]
+
+find_unused_parameters: False
+
+num_classes: 24 # CropAndWeed
+# num_classes: 3 # USU-Corn-WeedDB
+remap_mscoco_category: True
+
+print_freq: 500
+checkpoint_freq: 10
+
+output_dir: ./outputs/deimv2_hgnetv2_n_improve_CropAndWeed # CropAndWeed
+# output_dir: ./outputs/deimv2_hgnetv2_n_improve_USU-Corn-WeedDB # USU-Corn-WeedDB
+
+
+HGNetv2:
+  name: 'Pico'
+  return_idx: [0, 1, 2]
+
+
+HybridEncoder:
+  in_channels: [64, 256, 512]
+  feat_strides: [8, 16, 32]
+
+  # intra
+  use_encoder_idx: [2]
+
+  version: 'dfine'
+
+  use_downsample: True
+  downsample_pretrained: True # Only support HGNetv2: name='Pico'、return_idx=[0, 1, 2]
+
+  loops: [[2]]
+
+  # hyper ace
+  hyperace:
+    c1: [128, 128, 128]
+    c2: 128
+    num_hyperedges: 4
+
+
+DEIMTransformer:
+  feat_channels: [128, 128, 128]
+  feat_strides: [8, 16, 32]
+  num_levels: 3
+  num_points: [6, 6, 6]
+
+  loops: [2, 2, 1]
+
+
+optimizer:
+  params:
+    -
+      params: '^(?=.*backbone)(?!.*norm|bn).*$'
+      lr: 0.0006
+    -
+      params: '^(?=.*backbone)(?=.*norm|bn).*$'
+      lr: 0.0006
+      weight_decay: 0.
+    -
+      params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+      weight_decay: 0.
+
+  lr: 0.0012
+
+
+# Increase to search for the optimal ema
+epoches: 192 # 160 + 12 + 20
+
+warmup_iter: 1000 # CropAndWeed
+# warmup_iter: 100 # USU-Corn-WeedDB
+
+
+train_dataloader: 
+  dataset:
+    img_folder: ../data/CropAndWeed/train/ # CropAndWeed
+    ann_file: ../data/CropAndWeed/annotations/Fine24/instances_train.json # CropAndWeed
+    # img_folder: ../data/USU-Corn-WeedDB/train/ # USU-Corn-WeedDB
+    # ann_file: ../data/USU-Corn-WeedDB/annotations/instances_train.json # USU-Corn-WeedDB
+    transforms:
+      policy:
+        epoch: [4, 90, 172]   # list
+      mosaic_prob: 0.5
+
+  collate_fn:
+    mixup_prob: 0.5
+    mixup_epochs: [4, 90]
+    copyblend_prob: 0.4
+    copyblend_epochs: [4, 90]   # CP half
+    area_threshold: 100
+    stop_epoch: 172
+
+  total_batch_size: 8
+
+
+val_dataloader:
+  dataset: 
+    img_folder: ../data/CropAndWeed/val/ # CropAndWeed
+    ann_file: ../data/CropAndWeed/annotations/Fine24/instances_val.json # CropAndWeed
+    # img_folder: ../data/USU-Corn-WeedDB/val/ # USU-Corn-WeedDB
+    # ann_file: ../data/USU-Corn-WeedDB/annotations/instances_val.json # USU-Corn-WeedDB
+
+  total_batch_size: 16
+
+
+test_dataloader:
+  type: DataLoader
+  dataset: 
+    type: CocoDetection
+    return_masks: False
+    img_folder: ../data/CropAndWeed/test/ # CropAndWeed
+    ann_file: ../data/CropAndWeed/annotations/Fine24/instances_test.json # CropAndWeed
+    # img_folder: ../data/USU-Corn-WeedDB/test/ # USU-Corn-WeedDB
+    # ann_file: ../data/USU-Corn-WeedDB/annotations/instances_test.json # USU-Corn-WeedDB
+    transforms:
+      type: Compose
+      ops:
+        - {type: Resize, size: [640, 640], }
+        - {type: ConvertPILImage, dtype: 'float32', scale: True}
+  shuffle: False
+  total_batch_size: 16
+  num_workers: 4
+  drop_last: False
+  collate_fn:
+    type: BatchImageCollateFunction
+
+
+DEIMCriterion:
+  matcher:
+    change_matcher: True
+    matcher_change_epoch: 160

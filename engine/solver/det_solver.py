@@ -6,6 +6,7 @@ Modified from D-FINE (https://github.com/Peterande/D-FINE)
 Copyright (c) 2024 D-FINE authors. All Rights Reserved.
 """
 
+import os
 import time
 import json
 import datetime
@@ -77,6 +78,7 @@ class DetSolver(BaseSolver):
             if epoch == self.train_dataloader.collate_fn.stop_epoch:
                 if dist_utils.is_dist_available_and_initialized():
                     torch.distributed.barrier()
+                best_stats = {}
                 self.load_resume_state(str(self.output_dir / (self.ema.testkey + '_best_stg1.pth')))
                 self.ema.decay = self.train_dataloader.collate_fn.ema_restart_decay
                 print(f'Refresh EMA at epoch {epoch} with decay {self.ema.decay}')
@@ -97,12 +99,13 @@ class DetSolver(BaseSolver):
                 lr_warmup_scheduler=self.lr_warmup_scheduler,
                 writer=self.writer
             )
+            torch.cuda.empty_cache()
 
             if not self.self_lr_scheduler:  # update by epoch 
                 if self.lr_warmup_scheduler is None or self.lr_warmup_scheduler.finished():
                     self.lr_scheduler.step()
 
-            self.last_epoch = epoch 
+            self.last_epoch = epoch
 
             if self.output_dir and epoch < self.train_dataloader.collate_fn.stop_epoch:
                 checkpoint_paths = [self.output_dir / 'last.pth']
@@ -207,6 +210,40 @@ class DetSolver(BaseSolver):
                             torch.save(coco_evaluator.coco_eval["segm"].eval,
                                     self.output_dir / "eval" / "segm" / name)
 
+        best_stg1_path = str(self.output_dir / (self.ema.testkey + '_best_stg1.pth'))
+        if os.path.exists(best_stg1_path):
+            print('TEST ' + self.ema.testkey + ' best stg1:')
+            self.load_resume_state(best_stg1_path)
+            module = self.ema.module if self.ema else self.model
+            test_stats, coco_evaluator = evaluate(
+                module,
+                self.criterion,
+                self.postprocessor,
+                self.test_dataloader,
+                self.evaluator_test,
+                self.device
+            )
+            log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}}
+            with (self.output_dir / "log.txt").open("a") as f:
+                f.write('TEST ' + self.ema.testkey + ' best stg1:' + json.dumps(log_stats) + "\n")
+
+        best_stg2_path = str(self.output_dir / (self.ema.testkey + '_best_stg2.pth'))
+        if os.path.exists(best_stg2_path):
+            print('TEST ' + self.ema.testkey + ' best stg2:')
+            self.load_resume_state(best_stg2_path)
+            module = self.ema.module if self.ema else self.model
+            test_stats, coco_evaluator = evaluate(
+                module,
+                self.criterion,
+                self.postprocessor,
+                self.test_dataloader,
+                self.evaluator_test,
+                self.device
+            )
+            log_stats = {**{f'test_{k}': v for k, v in test_stats.items()}}
+            with (self.output_dir / "log.txt").open("a") as f:
+                f.write('TEST ' + self.ema.testkey + ' best stg2:' + json.dumps(log_stats) + "\n")
+
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
         print('Training time {}'.format(total_time_str))
@@ -217,7 +254,7 @@ class DetSolver(BaseSolver):
 
         module = self.ema.module if self.ema else self.model
         test_stats, coco_evaluator = evaluate(module, self.criterion, self.postprocessor,
-                self.val_dataloader, self.evaluator, self.device)
+                self.test_dataloader, self.evaluator_test, self.device)
 
         if self.output_dir:
             for k in coco_evaluator.coco_eval.keys():

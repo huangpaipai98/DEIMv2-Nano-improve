@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-    Nanoscale object detectors enable deployment under stringent resource constraints, but limited model capacity can hinder small-object detection. Using DEIMv2-Nano as the baseline, we coordinate backbone lightweighting, multiscale feature enhancement, and recurrent computation. We remove stage 4, reorganize the backbone outputs into three scales, and apply downsampling to retain high-resolution information with fewer parameters. HyperACE and FullPAD enhance higher-order global semantics and local fine-grained representations. Weight-shared Looped Transformers in AIFI and the first two decoder layers increase effective computational depth without adding learnable parameters. A lightweight segmentation head further supports joint object detection and instance segmentation. On the COCO 2017 validation set, the detector achieves 45.6 AP with 2.94 M parameters and 3.14 ms end-to-end latency, while the segmentation model achieves 44.8 AP@box and 36.4 AP@mask with 6.91 ms latency. VisDrone-DET experiments and ablations confirm improved small-object detection and complementary effects among the proposed components.
+    Nanoscale object detectors are suitable for resource-constrained deployment, but their limited capacity can hinder small-object detection. Using DEIMv2-Nano as the baseline, we propose a lightweight real-time detection framework that reduces backbone depth, reorganizes feature outputs into three scales, and combines HyperACE and FullPAD for multiscale feature enhancement. Weight-shared Looped Transformers in AIFI and the first two decoder layers increase effective computational depth without adding learnable parameters. We also incorporate a lightweight segmentation head for joint object detection and instance segmentation. On the COCO 2017 validation set, the detector achieves 45.6 AP with 2.94 M parameters and 3.14 ms end-to-end latency; the segmentation model achieves 44.8 AP@box and 36.4 AP@mask with 6.91 ms latency. Further evaluations yield 19.1 AP on VisDrone-DET, 55.1 AP on CropAndWeed, and 46.1 AP with 37.9 AP@S on USU-Corn-WeedDB. Ablation results confirm the complementary contributions of multiscale feature enhancement and recurrent computation. These findings demonstrate the framework’s effectiveness across general and agricultural detection tasks, particularly for small objects. Code and pretrained models are available at https://github.com/huangpaipai98/DEIMv2-Nano-improve.
 </p>
 
 ---
@@ -93,6 +93,9 @@ Follow the steps below to prepare COCO dataset:
     val_dataloader:
         img_folder: ../data/COCO2017/val2017/
         ann_file: ../data/COCO2017/annotations/instances_val2017.json
+    test_dataloader:
+        img_folder: ../data/COCO2017/val2017/
+        ann_file: ../data/COCO2017/annotations/instances_val2017.json
     ```
 
 </details>
@@ -114,25 +117,28 @@ Follow the steps below to prepare VisDrone dataset:
     val_dataloader:
         img_folder: ../data/VisDrone2019-DET/test-dev/
         ann_file: ../data/VisDrone2019-DET/annotations/instances_test-dev.json
+    test_dataloader:
+        img_folder: ../data/VisDrone2019-DET/test-dev/
+        ann_file: ../data/VisDrone2019-DET/annotations/instances_test-dev.json
     ```
 
 </details>
 
 
+<details open>
+<summary> 2.2.3 More Datasets </summary>
+
+Download more datasets from [Baidu Netdisk](https://pan.baidu.com/s/1Wxp2HaXaadgUiOQ3-2ANMw?pwd=6666).
+
+</details>
+
+
 <details>
-<summary>2.2.3 (Optional) Custom Dataset</summary>
+<summary>2.2.4 (Optional) Custom Dataset</summary>
 
 To train on your custom dataset, you need to organize it in the COCO format. Follow the steps below to prepare your dataset:
 
-1. **Set `remap_mscoco_category` to `False`:**
-
-    This prevents the automatic remapping of category IDs to match the MSCOCO categories.
-
-    ```yaml
-    remap_mscoco_category: False
-    ```
-
-2. **Organize Images:**
+1. **Organize Images:**
 
     Structure your dataset directories as follows:
 
@@ -146,6 +152,10 @@ To train on your custom dataset, you need to organize it in the COCO format. Fol
     │   ├── image1.jpg
     │   ├── image2.jpg
     │   └── ...
+    ├── test/
+    │   ├── image1.jpg
+    │   ├── image2.jpg
+    │   └── ...
     └── annotations/
         ├── instances_train.json
         ├── instances_val.json
@@ -154,68 +164,100 @@ To train on your custom dataset, you need to organize it in the COCO format. Fol
 
     - **`train/`**: Contains all training images.
     - **`val/`**: Contains all validation images.
+    - **`test/`**: Contains all validation images.
     - **`annotations/`**: Contains COCO-formatted annotation files.
 
-3. **Convert Annotations to COCO Format:**
+2. **Convert Annotations to COCO Format:**
 
-    If your annotations are not already in COCO format, you'll need to convert them. You can use the following Python script as a reference or utilize existing tools:
+    If your annotations are not already in COCO format, you'll need to convert them. For example, you can use [yolo_to_coco.py](./dataset-split_and_convert_to_coco/yolo_to_coco.py) to convert the YOLO format:
 
-    ```python
-    import json
-
-    def convert_to_coco(input_annotations, output_annotations):
-        # Implement conversion logic here
-        pass
-
-    if __name__ == "__main__":
-        convert_to_coco('path/to/your_annotations.json', '../data/yourdataset/annotations/instances_train.json')
+    ```shell
+    python yolo_to_coco.py image_dir label_dir classes_txt -o instances.json
     ```
 
-4. **Update Configuration Files:**
+3. **Update Configuration Files:**
 
     Modify your [custom_detection.yml](./configs/dataset/custom_detection.yml).
 
     ```yaml
-    task: detection
+    __include__: [
+    '../deimv2_improve/deimv2_hgnetv2_n_improve_coco.yml',
+    ]
+    # __include__: [
+    # '../deimv2_improve/deimv2_hgnetv2_n_improve_coco_seg.yml',
+    # ]
 
     evaluator:
-      type: CocoEvaluator
       iou_types: ['bbox', ]
+      # iou_types: ['bbox', 'segm']
 
     num_classes: 777 # your dataset classes
-    remap_mscoco_category: False
+
+    output_dir: ./outputs/deimv2_hgnetv2_n_improve_your_dataset
+    # output_dir: ./outputs/deimv2_hgnetv2_n_improve_your_dataset_seg
+
+    optimizer:
+      params:
+        -
+          params: '^(?=.*backbone)(?!.*norm|bn).*$'
+          lr: 0.0006
+        -
+          params: '^(?=.*backbone)(?=.*norm|bn).*$'
+          lr: 0.0006
+          weight_decay: 0.
+        -
+          params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
+          weight_decay: 0.
+      
+      lr: 0.0012
+
+    # Increase to search for the optimal ema
+    epoches: 232 # 160 + 12 + 60
 
     train_dataloader:
-      type: DataLoader
       dataset:
-        type: CocoDetection
         img_folder: ../data/yourdataset/train
         ann_file: ../data/yourdataset/annotations/instances_train.json
-        return_masks: False
+        # return_masks: False
         transforms:
-          type: Compose
-          ops: ~
+          policy:
+            epoch: [4, 90, 172]   # list
+          mosaic_prob: 0.5
       shuffle: True
       num_workers: 4
       drop_last: True
+
       collate_fn:
-        type: BatchImageCollateFunction
+        mixup_prob: 0.5
+        mixup_epochs: [4, 90]
+        copyblend_prob: 0.4
+        copyblend_epochs: [4, 90]   # CP half
+        area_threshold: 100
+        stop_epoch: 172
+
+      total_batch_size: 128
 
     val_dataloader:
-      type: DataLoader
       dataset:
-        type: CocoDetection
         img_folder: ../data/yourdataset/val
         ann_file: ../data/yourdataset/annotations/instances_val.json
-        return_masks: False
-        transforms:
-          type: Compose
-          ops: ~
+        # return_masks: False
       shuffle: False
       num_workers: 4
       drop_last: False
-      collate_fn:
-        type: BatchImageCollateFunction
+      total_batch_size: 256
+    
+    test_dataloader:
+      dataset:
+        img_folder: ../data/yourdataset/test
+        ann_file: ../data/yourdataset/annotations/instances_test.json
+        # return_masks: False
+      shuffle: False
+      num_workers: 4
+      drop_last: False
+      total_batch_size: 256
+
+    
     ```
 
 </details>
@@ -229,6 +271,15 @@ Place hgnetv2 into ./weight/hgnetv2 folder as:
 ```shell
 weight/hgnetv2/
 └── PPHGNetV2_B0_stage1.pth
+```
+
+- **DINOv3**: DINOv3 backbones can be obtained in [DEIMv2](https://github.com/Intellindust-AI-Lab/DEIMv2).
+
+Place dinov3 into ./weight/dinov3 folder as:
+
+```shell
+weight/dinov3/
+└── vitt_distill.pt
 ```
 
 
@@ -316,16 +367,16 @@ If you want to use **DEIMv2-Nano-improve** and  double the total batch size to 2
       params: 
         -
           params: '^(?=.*backbone)(?!.*norm|bn).*$'
-          lr: 0.00085  # doubled, quadratic scaling law
+          lr: 0.0003  # doubled, linear scaling law
         -
           params: '^(?=.*backbone)(?=.*norm|bn).*$'
-          lr: 0.00085   # doubled, quadratic scaling law
+          lr: 0.0003   # doubled, linear scaling law
           weight_decay: 0.
         - 
           params: '^(?=.*(?:encoder|decoder))(?=.*(?:norm|bn|bias)).*$'
           weight_decay: 0.
     
-      lr: 0.0012   # quadratic scaling law if needed
+      lr: 0.0006   # linear scaling law if needed
       betas: [0.9, 0.999]
       weight_decay: 0.0001
    

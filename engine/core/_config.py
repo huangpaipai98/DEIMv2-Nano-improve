@@ -34,12 +34,15 @@ class BaseConfig(object):
         self._lr_warmup_scheduler: LRScheduler = None
         self._train_dataloader :DataLoader = None
         self._val_dataloader :DataLoader = None
+        self._test_dataloader :DataLoader = None
         self._ema :nn.Module = None
         self._scaler :GradScaler = None
         self._train_dataset :Dataset = None
         self._val_dataset :Dataset = None
+        self._test_dataset :Dataset = None
         self._collate_fn :Callable = None
         self._evaluator :Callable[[nn.Module, DataLoader, str], ] = None
+        self._evaluator_test :Callable[[nn.Module, DataLoader, str], ] = None
         self._writer: SummaryWriter = None
 
         # dataset
@@ -47,8 +50,10 @@ class BaseConfig(object):
         self.batch_size :int = None
         self._train_batch_size :int = None
         self._val_batch_size :int = None
+        self._test_batch_size :int = None
         self._train_shuffle: bool = None
         self._val_shuffle: bool = None
+        self._test_shuffle: bool = None
 
         # runtime
         self.resume :str = None
@@ -168,6 +173,25 @@ class BaseConfig(object):
         self._val_dataloader = loader
 
     @property
+    def test_dataloader(self) -> DataLoader:
+        if self._test_dataloader is None and self.test_dataset is not None:
+            loader = DataLoader(self.test_dataset,
+                                batch_size=self.test_batch_size,
+                                num_workers=self.num_workers,
+                                drop_last=False,
+                                collate_fn=self.collate_fn,
+                                shuffle=self.test_shuffle,
+                                persistent_workers=True)
+            loader.shuffle = self.test_shuffle
+            self._test_dataloader = loader
+
+        return self._test_dataloader
+
+    @test_dataloader.setter
+    def test_dataloader(self, loader):
+        self._test_dataloader = loader
+
+    @property
     def ema(self, ) -> nn.Module:
         if self._ema is None and self.use_ema and self.model is not None:
             from ..optim import ModelEMA
@@ -212,6 +236,18 @@ class BaseConfig(object):
         assert isinstance(shuffle, bool), 'shuffle must be bool'
         self._train_shuffle = shuffle
 
+    @property
+    def test_shuffle(self) -> bool:
+        if self._test_shuffle is None:
+            print('warning: set default test_shuffle=False')
+            return False
+        return self._test_shuffle
+
+    @test_shuffle.setter
+    def test_shuffle(self, shuffle):
+        assert isinstance(shuffle, bool), 'shuffle must be bool'
+        self._test_shuffle = shuffle
+
 
     @property
     def train_batch_size(self) -> int:
@@ -237,6 +273,18 @@ class BaseConfig(object):
         assert isinstance(batch_size, int), 'batch_size must be int'
         self._val_batch_size = batch_size
 
+    @property
+    def test_batch_size(self) -> int:
+        if self._test_batch_size is None:
+            print(f'warning: set test_batch_size=batch_size={self.batch_size}')
+            return self.batch_size
+        return self._test_batch_size
+
+    @test_batch_size.setter
+    def test_batch_size(self, batch_size):
+        assert isinstance(batch_size, int), 'batch_size must be int'
+        self._test_batch_size = batch_size
+
 
     @property
     def train_dataset(self) -> Dataset:
@@ -247,7 +295,6 @@ class BaseConfig(object):
         assert isinstance(dataset, Dataset), f'{type(dataset)} must be Dataset'
         self._train_dataset = dataset
 
-
     @property
     def val_dataset(self) -> Dataset:
         return self._val_dataset
@@ -256,6 +303,16 @@ class BaseConfig(object):
     def val_dataset(self, dataset):
         assert isinstance(dataset, Dataset), f'{type(dataset)} must be Dataset'
         self._val_dataset = dataset
+
+    @property
+    def test_dataset(self) -> Dataset:
+        return self._test_dataset
+
+    @test_dataset.setter
+    def test_dataset(self, dataset):
+        assert isinstance(dataset, Dataset), f'{type(dataset)} must be Dataset'
+        self._test_dataset = dataset
+
 
     @property
     def collate_fn(self) -> Callable:
@@ -274,6 +331,15 @@ class BaseConfig(object):
     def evaluator(self, fn):
         assert isinstance(fn, Callable), f'{type(fn)} must be Callable'
         self._evaluator = fn
+
+    @property
+    def evaluator_test(self) -> Callable:
+        return self._evaluator_test
+
+    @evaluator_test.setter
+    def evaluator_test(self, fn):
+        assert isinstance(fn, Callable), f'{type(fn)} must be Callable'
+        self._evaluator_test = fn
 
     @property
     def writer(self) -> SummaryWriter:

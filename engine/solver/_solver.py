@@ -89,8 +89,12 @@ class BaseSolver(object):
         self.val_dataloader = dist_utils.wrap_loader(
             self.cfg.val_dataloader, shuffle=self.cfg.val_dataloader.shuffle
         )
+        self.test_dataloader = dist_utils.wrap_loader(
+            self.cfg.test_dataloader, shuffle=self.cfg.test_dataloader.shuffle
+        )
 
         self.evaluator = self.cfg.evaluator
+        self.evaluator_test = self.cfg.evaluator_test
 
         # NOTE: Instantiating order
         if self.cfg.resume:
@@ -100,11 +104,11 @@ class BaseSolver(object):
     def eval(self):
         self._setup()
 
-        self.val_dataloader = dist_utils.wrap_loader(
-            self.cfg.val_dataloader, shuffle=self.cfg.val_dataloader.shuffle
+        self.test_dataloader = dist_utils.wrap_loader(
+            self.cfg.test_dataloader, shuffle=self.cfg.test_dataloader.shuffle
         )
 
-        self.evaluator = self.cfg.evaluator
+        self.evaluator_test = self.cfg.evaluator_test
 
         if self.cfg.resume:
             print(f'Resume checkpoint from {self.cfg.resume}')

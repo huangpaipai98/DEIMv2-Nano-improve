@@ -10,7 +10,7 @@ import numpy as np
 from ultralytics import YOLO
 from ultralytics.data.dataset import DATASET_CACHE_VERSION, YOLODataset
 from ultralytics.data.utils import get_hash, load_dataset_cache_file, save_dataset_cache_file
-from ultralytics.models.yolo.detect import DetectionTrainer
+from ultralytics.models.yolo.detect import DetectionTrainer, DetectionValidator
 from ultralytics.utils import TQDM, colorstr
 
 class COCODataset(YOLODataset):
@@ -114,6 +114,42 @@ class COCOTrainer(DetectionTrainer):
             fraction=self.args.fraction if mode == "train" else 1.0,
         )
 
+class COCOValidator(DetectionValidator):
+    def build_dataset(self, img_path, mode="val", batch=None):
+        stride = self.stride.max() if hasattr(self.stride, "max") else self.stride
+
+        return COCODataset(
+            img_path=img_path,
+            json_file=self.data["val_json"],
+            imgsz=self.args.imgsz,
+            batch_size=batch,
+            augment=False,
+            hyp=self.args,
+            rect=True,
+            cache=self.args.cache or None,
+            single_cls=self.args.single_cls or False,
+            stride=int(stride),
+            pad=0.5,
+            prefix=colorstr("val: "),
+            task=self.args.task,
+            classes=self.args.classes,
+            fraction=1.0,
+        )
+
 if __name__ == '__main__':
     model = YOLO("yolo26n.yaml")
-    model.train(data="yolo_visdrone.yaml", epochs=300, imgsz=640, trainer=COCOTrainer, batch=128, device=[0, 1, 2, 3])
+    model.train(
+        data="yolo.yaml", 
+        trainer=COCOTrainer, 
+        epochs=300,
+        batch=16,
+        patience=50
+    )
+    best_pt = Path(model.trainer.best)
+    model = YOLO(str(best_pt))
+    model.val(
+        data="yolo.yaml",
+        validator=COCOValidator,
+        batch=32,
+        save_json=True,
+    )

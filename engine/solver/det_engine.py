@@ -7,6 +7,7 @@ Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved.
 """
 
 
+import gc
 import sys
 import math
 from typing import Iterable
@@ -40,53 +41,61 @@ def train_one_epoch(self_lr_scheduler, lr_scheduler, model: torch.nn.Module, cri
     cur_iters = epoch * len(data_loader)
 
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        samples = samples.to(device)
-        targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         global_step = epoch * len(data_loader) + i
         metas = dict(epoch=epoch, step=i, global_step=global_step, epoch_step=len(data_loader))
 
-        if scaler is not None:
-            with torch.autocast(device_type=str(device), cache_enabled=True):
-                outputs = model(samples, targets=targets)
-
-            if torch.isnan(outputs['pred_boxes']).any() or torch.isinf(outputs['pred_boxes']).any():
-                print(outputs['pred_boxes'])
-                state = model.state_dict()
-                new_state = {}
-                for key, value in model.state_dict().items():
-                    # Replace 'module' with 'model' in each key
-                    new_key = key.replace('module.', '')
-                    # Add the updated key-value pair to the state dictionary
-                    state[new_key] = value
-                new_state['model'] = state
-                dist_utils.save_on_master(new_state, "./NaN.pth")
-
-            with torch.autocast(device_type=str(device), enabled=False):
-                loss_dict = criterion(outputs, targets, **metas)
-
-            loss = sum(loss_dict.values())
-            scaler.scale(loss).backward()
-
-            if max_norm > 0:
-                scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
-
-            scaler.step(optimizer)
-            scaler.update()
-            optimizer.zero_grad()
+        if dist_utils.get_world_size() > 1:
+            samples = samples.to(device)
+            targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+            loss_dict = train_one_batch(
+                model, 
+                samples, 
+                targets,
+                criterion,
+                optimizer, 
+                metas,
+                device, 
+                max_norm, 
+                scaler
+            )
 
         else:
-            outputs = model(samples, targets=targets)
-            loss_dict = criterion(outputs, targets, **metas)
+            try:
+                samples = samples.to(device)
+                targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
+                loss_dict = train_one_batch(
+                    model, 
+                    samples, 
+                    targets,
+                    criterion,
+                    optimizer, 
+                    metas,
+                    device, 
+                    max_norm, 
+                    scaler
+                )
 
-            loss : torch.Tensor = sum(loss_dict.values())
-            optimizer.zero_grad()
-            loss.backward()
+            except RuntimeError as e:
+                error_msg = str(e).lower()
+                if "out of memory" in error_msg:
+                    print(f"[WARNING] 跳过当前 batch: {e}")
+                    optimizer.zero_grad(set_to_none=True)
+                    gc.collect()
+                    
+                    try:
+                        torch.cuda.empty_cache()
+                        # 测试 GPU 是否还能正常执行运算
+                        test = torch.zeros(1, device=device)
+                        torch.cuda.synchronize()
+                        del test
 
-            if max_norm > 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+                    except RuntimeError as e:
+                        print(f"[ERROR] GPU 仍然异常: {e}")
+                        raise
+                    
+                    continue
 
-            optimizer.step()
+                raise
 
         # ema
         if ema is not None:
@@ -120,6 +129,55 @@ def train_one_epoch(self_lr_scheduler, lr_scheduler, model: torch.nn.Module, cri
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
     return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
+
+
+def train_one_batch(model: torch.nn.Module, samples, targets,
+                    criterion: torch.nn.Module, optimizer: torch.optim.Optimizer, metas,
+                    device: torch.device, max_norm: float = 0, scaler :GradScaler = None):
+    if scaler is not None:
+        with torch.autocast(device_type=str(device), cache_enabled=True):
+            outputs = model(samples, targets=targets)
+
+        if torch.isnan(outputs['pred_boxes']).any() or torch.isinf(outputs['pred_boxes']).any():
+            print(outputs['pred_boxes'])
+            state = model.state_dict()
+            new_state = {}
+            for key, value in model.state_dict().items():
+                # Replace 'module' with 'model' in each key
+                new_key = key.replace('module.', '')
+                # Add the updated key-value pair to the state dictionary
+                state[new_key] = value
+            new_state['model'] = state
+            dist_utils.save_on_master(new_state, "./NaN.pth")
+
+        with torch.autocast(device_type=str(device), enabled=False):
+            loss_dict = criterion(outputs, targets, **metas)
+
+        loss = sum(loss_dict.values())
+        scaler.scale(loss).backward()
+
+        if max_norm > 0:
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+
+        scaler.step(optimizer)
+        scaler.update()
+        optimizer.zero_grad()
+
+    else:
+        outputs = model(samples, targets=targets)
+        loss_dict = criterion(outputs, targets, **metas)
+
+        loss : torch.Tensor = sum(loss_dict.values())
+        optimizer.zero_grad()
+        loss.backward()
+
+        if max_norm > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm)
+
+        optimizer.step()
+
+    return loss_dict
 
 
 @torch.no_grad()
